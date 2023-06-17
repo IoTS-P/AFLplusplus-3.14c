@@ -27,6 +27,7 @@
 #include "cmplog.h"
 #include <limits.h>
 #include <stdlib.h>
+#include <stdio.h>
 #ifndef USEMMAP
   #include <sys/mman.h>
   #include <sys/stat.h>
@@ -42,6 +43,38 @@
 #ifdef PROFILING
 extern u64 time_spent_working;
 #endif
+
+size_t bb_interest,bb_all;
+
+//统计导入的两类基本块的数量
+void load_basic_blocks(const char *filename) {
+    size_t count_bb_all = 0, count_bb_interest = 0;
+    char line[20];
+    size_t* current_count = NULL;
+
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("Error opening basic_block.txt");
+        exit(EXIT_FAILURE);
+    }
+      
+    while (fgets(line, sizeof(line), file)) {
+        if (strncmp(line, "bb_all", 6) == 0) {
+            current_count = &count_bb_all;
+        } else if (strncmp(line, "bb_interest", 11) == 0) {
+            current_count = &count_bb_interest;
+        } else if (current_count) {
+            (*current_count)++;
+        }
+    }
+
+    fclose(file);
+
+    bb_all = count_bb_all;
+    bb_interest = count_bb_all - count_bb_interest;
+}
+
+
 
 static void at_exit() {
 
@@ -333,6 +366,21 @@ static int stricmp(char const *a, char const *b) {
 
 }
 
+
+//取最接近的2次幂
+size_t closest_power_of_2(size_t x) {
+    if (x && !(x & (x - 1))) {
+        // x是2的幂次方
+        return x;
+    }
+    size_t n = 1;
+    while (n < x) {
+        n <<= 1;
+    }
+    return n;
+}
+
+
 static void fasan_check_afl_preload(char *afl_preload) {
 
   char   first_preload[PATH_MAX + 1] = {0};
@@ -366,7 +414,7 @@ static void fasan_check_afl_preload(char *afl_preload) {
     FATAL("Address Sanitizer DSO must be the first DSO in AFL_PRELOAD");
 
   }
-
+  
   if (access(first_preload, R_OK) != 0) {
 
     FATAL("Address Sanitizer DSO not found");
@@ -375,7 +423,7 @@ static void fasan_check_afl_preload(char *afl_preload) {
 
   OKF("Found ASAN DSO: %s", first_preload);
 
-}
+} 
 
 /* Main entry point */
 
@@ -391,6 +439,7 @@ int main(int argc, char **argv_orig, char **envp) {
   char * afl_preload;
   char * frida_afl_preload = NULL;
   char **use_argv;
+  const char *file = "/home/shandian/fuzzware/pipeline/fuzzware_pipeline/basic_blocks.txt";
 
   struct timeval  tv;
   struct timezone tz;
@@ -401,10 +450,12 @@ int main(int argc, char **argv_orig, char **envp) {
     WARNF(
         "Setting AFL_NO_COLOR has no effect (colors are configured on at "
         "compile time)");
-
   }
-
+  
   #endif
+
+  load_basic_blocks(file);
+  printf("\n\nbb_all=%zu,bb_interest=%zu\n\n",bb_all,bb_interest);
 
   char **argv = argv_cpy_dup(argc, argv_orig);
 
@@ -1696,7 +1747,10 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->non_instrumented_mode || afl->fsrv.qemu_mode ||
       afl->fsrv.frida_mode || afl->unicorn_mode) {
 
+    
     map_size = afl->fsrv.map_size = MAP_SIZE;
+    //map_size = afl->fsrv.map_size = closest_power_of_2(bb_all);
+    printf("\n\n****************MAP的大小为***************%zu\n\n",map_size);
     afl->virgin_bits = ck_realloc(afl->virgin_bits, map_size);
     afl->virgin_tmout = ck_realloc(afl->virgin_tmout, map_size);
     afl->virgin_crash = ck_realloc(afl->virgin_crash, map_size);
@@ -1749,7 +1803,7 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_fsrv_kill(&afl->fsrv);
       afl_shm_deinit(&afl->shm);
       afl->fsrv.map_size = new_map_size;
-      afl->fsrv.trace_bits =
+      afl->fsrv.trace_bits = 
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,

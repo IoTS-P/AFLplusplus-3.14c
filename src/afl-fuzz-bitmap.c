@@ -217,6 +217,21 @@ void init_count_class16(void) {
    This function is called after every exec() on a fairly large buffer, so
    it needs to be fast. We do this in 32-bit and 64-bit flavors. */
 
+//取最接近的2次幂
+u32 power(size_t x) {
+    if (x && !(x & (x - 1))) {
+        // x是2的幂次方
+        return x;
+    }
+    u32 n = 1;
+    while (n < x) {
+        n <<= 1;
+    }
+    return n;
+}
+
+
+
 inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
 #ifdef WORD_SIZE_64
@@ -236,13 +251,22 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 #endif                                                     /* ^WORD_SIZE_64 */
 
   u8 ret = 0;
+  u32 index = 0;
+  printf("\n\n***************此时的map_size为*****************\n\n%zu",power(bb_all));
   while (i--) {
-
-    if (unlikely(*current)) discover_word(&ret, current, virgin);
+    printf("此时的index为%i,此时的值为%llx\n",bb_interest,*current);
+    index = index + 1;
+    if (unlikely(*current)){
+      if (index <= bb_interest)discover_word(&ret, current, virgin);
+      //else {
+      //  discover_word(&ret, current, virgin);
+      //  if (ret == 2)ret = 1;
+      //}
+    }
 
     current++;
     virgin++;
-
+    //printf("\nret=%i\n",ret);
   }
 
   if (unlikely(ret) && likely(virgin_map == afl->virgin_bits))
@@ -393,6 +417,7 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
 }
 
+
 #endif                                                     /* !SIMPLE_FILES */
 
 /* Write a message accompanying the crash directory :-) */
@@ -489,7 +514,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
 
     if (likely(!new_bits)) {
-
+    
       if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
       return 0;
 

@@ -135,7 +135,7 @@
 #else
   #define AFL_RAND_RETURN u32
 #endif
-
+extern size_t bb_interest,bb_all;
 extern s8  interesting_8[INTERESTING_8_LEN];
 extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
 extern s32
@@ -982,7 +982,7 @@ struct custom_mutator {
   void (*afl_custom_deinit)(void *data);
 
 };
-
+void load_basic_blocks(const char *filename);
 void afl_state_init(afl_state_t *, uint32_t map_size);
 void afl_state_deinit(afl_state_t *);
 
