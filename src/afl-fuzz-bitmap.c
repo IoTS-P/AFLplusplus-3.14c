@@ -252,11 +252,11 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
   u8 ret = 0;
   u32 index = 0;
-  printf("\n\n***************此时的map_size为*****************\n\n%zu",power(bb_all));
+  //printf("\n\n***************此时的map_size为*****************\n\n%zu",power(bb_all));
   while (i--) {
-    printf("此时的index为%i,此时的值为%llx\n",bb_interest,*current);
     index = index + 1;
     if (unlikely(*current)){
+      printf("此时的index为%i,此时的值为%llx\n",index,*current);
       if (index <= bb_interest)discover_word(&ret, current, virgin);
       //else {
       //  discover_word(&ret, current, virgin);

@@ -71,7 +71,7 @@ void load_basic_blocks(const char *filename) {
     fclose(file);
 
     bb_all = count_bb_all;
-    bb_interest = count_bb_all - count_bb_interest;
+    bb_interest = count_bb_interest;
 }
 
 
